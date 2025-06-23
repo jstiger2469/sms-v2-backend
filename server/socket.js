@@ -4,9 +4,11 @@ let io;
 const initSocket = (server) => {
   io = new Server(server, {
     cors: {
-      origin: 'http://localhost:3000', // Allow frontend access
+      origin: process.env.NODE_ENV === 'production' 
+        ? [process.env.FRONTEND_URL, process.env.ADMIN_URL].filter(Boolean)
+        : 'http://localhost:3000',
       methods: ['GET', 'POST'],
-      credentials: true, // Allow authentication headers and cookies
+      credentials: true,
     },
   });
 
@@ -15,7 +17,7 @@ const initSocket = (server) => {
 
     // Listen for new notifications
     socket.on('new-notification', (notification) => {
-      console.log('New notification received:', notification);
+      console.log('New notification received');
       io.emit('new-notification', notification); // Broadcast to all clients
     });
 
