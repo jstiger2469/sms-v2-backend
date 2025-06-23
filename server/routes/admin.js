@@ -4,6 +4,7 @@ const Student = require('../models/Student'); // Import the Student model
 const Mentor = require('../models/Mentor'); // Import the Mentor model
 const Message = require('../models/Message'); // Import the Mentor model
 const Notifications = require('../models/Notifications'); // Import the Mentor model
+const Admin = require('../models/Admin'); // Ensure this is at the top if not already
 
 const { ManagementClient } = require('auth0');
 
@@ -27,13 +28,12 @@ router.get('/users', async (req, res) => {
     // Fetch users from Auth0
     const users = await managementClient.users.getAll();
     // Send response
-    console.log(users.data);
     res.status(200).json(users.data);
   } catch (error) {
     // Log error for debugging
     console.error('Error fetching users:', error.message);
     // Send error response
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Failed to fetch users' });
   }
 });
 
@@ -43,6 +43,7 @@ router.get("/mentors", async (req, res) => {
     const mentors = await Mentor.find();
     res.json(mentors);
   } catch (error) {
+    console.error('Error fetching mentors:', error);
     res.status(500).json({ message: "Error fetching mentors" });
   }
 });
@@ -53,6 +54,7 @@ router.get("/students", async (req, res) => {
     const students = await Student.find();
     res.json(students);
   } catch (error) {
+    console.error('Error fetching students:', error);
     res.status(500).json({ message: "Error fetching students" });
   }
 });
@@ -97,7 +99,7 @@ router.post("/send-message", async (req, res) => {
     // ✉️ Save the message in the database
     const newMessage = new Message({
       content: message,
-      sender: TWILIO_PHONE,
+      sender: req.body.sender,
       senderModel: "Admin",
       recipient: userId,
       recipientModel: selectedType.charAt(0).toUpperCase() + selectedType.slice(1),
@@ -148,9 +150,9 @@ router.post('/create-user', async (req, res) => {
     res.status(201).json({ message: 'User created successfully', user });
   } catch (error) {
     console.error('Error creating user:', error);
-    res
-      .status(500)
-      .json({ message: 'Failed to create user', error: error.message });
+    // Return the actual error message from Auth0 if available
+    const msg = error?.message || (error?.original && error.original.message) || 'Failed to create user';
+    res.status(500).json({ message: msg });
   }
 });
 
@@ -171,7 +173,7 @@ router.delete('/delete-user/:userId', async (req, res) => {
     console.error('Error deleting user:', error);
     res
       .status(500)
-      .json({ message: 'Failed to delete user', error: error.message });
+      .json({ message: 'Failed to delete user' });
   }
 });
 
@@ -185,10 +187,10 @@ router.get('/get-notifications', async (req, res) => {
     res.status(200).json({ notifications });
   } catch (error) {
     // Log error for debugging
-    console.error('Error fetching users:', error.message);
+    console.error('Error fetching notifications:', error.message);
 
     // Send error response
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Failed to fetch notifications' });
   }
 });
 
@@ -205,7 +207,7 @@ router.get('/delete-notifications', async (req,res) => {
     console.error('Error deleting notification:', error.message);
 
     // Send error response
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Failed to delete notification' });
   }
 
 })
@@ -217,7 +219,8 @@ router.get('/total-messages', async (req, res) => {
     console.log(totalMessages, 'totalMessages');
     res.status(200).json({ totalMessages });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Error fetching total messages:', error);
+    res.status(500).json({ error: 'Failed to fetch total messages' });
   }
 });
 
@@ -239,7 +242,8 @@ router.get('/messages-by-time-period', async (req, res) => {
     const messages = await Message.find({ timestamp: { $gte: startDate } });
     res.status(200).json({ count: messages.length, messages });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Error fetching messages by time period:', error);
+    res.status(500).json({ error: 'Failed to fetch messages by time period' });
   }
 });
 
@@ -289,7 +293,8 @@ router.get('/average-response-time', async (req, res) => {
       humanReadable,
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Error calculating average response time:', error);
+    res.status(500).json({ error: 'Failed to calculate average response time' });
   }
 });
 
@@ -345,7 +350,7 @@ router.get('/top-users', async (req, res) => {
     res.status(200).json(enrichedTopUsers);
   } catch (error) {
     console.error('Error fetching top users:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Failed to fetch top users' });
   }
 });
 
@@ -368,7 +373,8 @@ router.get('/messages-by-sender-type', async (req, res) => {
 
     res.status(200).json(messagesBySenderType);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Error fetching messages by sender type:', error);
+    res.status(500).json({ error: 'Failed to fetch messages by sender type' });
   }
 });
 
@@ -416,7 +422,8 @@ router.get('/average-response-time-by-match', async (req, res) => {
 
     res.status(200).json({ matchMetrics });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Error calculating average response time by match:', error);
+    res.status(500).json({ error: 'Failed to calculate average response time by match' });
   }
 });
 
@@ -440,7 +447,8 @@ router.get('/response-rate', async (req, res) => {
     // Send the response rate back
     res.status(200).json({ responseRate: responseRate.toFixed(2) });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Error calculating response rate:', error);
+    res.status(500).json({ error: 'Failed to calculate response rate' });
   }
 });
 
@@ -492,7 +500,8 @@ router.get('/response-rate-by-sender-type', async (req, res) => {
     // Return the response rates
     res.status(200).json(sortedResponseRates);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Error calculating response rate by sender type:', error);
+    res.status(500).json({ error: 'Failed to calculate response rate by sender type' });
   }
 });
 
@@ -529,7 +538,7 @@ router.get('/messages-by-month', async (req, res) => {
     res.status(200).json(groupedData);
   } catch (error) {
     console.error('Error fetching messages by month:', error);
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ error: 'Failed to fetch messages by month' });
   }
 });
 
@@ -580,7 +589,8 @@ router.get('/average-messages-per-day', async (req, res) => {
       mentorMessages: mentorMessages.toFixed(2),
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Error calculating average messages per day:', error);
+    res.status(500).json({ error: 'Failed to calculate average messages per day' });
   }
 });
 
@@ -653,8 +663,23 @@ router.get('/average-daily-users', async (req, res) => {
       averageStudentUsers: truncateToTwoDecimal(averageStudents), // Truncate to two decimal places
     });
   } catch (error) {
-    console.log(error);
-    res.status(500).json({ error: error.message });
+    console.error('Error calculating average daily users:', error);
+    res.status(500).json({ error: 'Failed to calculate average daily users' });
+  }
+});
+
+// Endpoint to get admin by Auth0 ID
+router.get('/admin-by-auth0id/:auth0id', async (req, res) => {
+  try {
+    const { auth0id } = req.params;
+    const admin = await Admin.findOne({ auth0Id: auth0id });
+    if (!admin) {
+      return res.status(404).json({ error: 'Admin not found' });
+    }
+    res.json(admin);
+  } catch (error) {
+    console.error('Error fetching admin by Auth0 ID:', error);
+    res.status(500).json({ error: 'Failed to fetch admin' });
   }
 });
 

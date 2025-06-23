@@ -3,6 +3,12 @@ const { MongoMemoryServer } = require('mongodb-memory-server');
 
 let mongoServer;
 
+// Set test environment
+process.env.NODE_ENV = 'test';
+
+// Increase timeout for tests
+jest.setTimeout(10000);
+
 beforeAll(async () => {
   mongoServer = await MongoMemoryServer.create();
   const mongoUri = mongoServer.getUri();
@@ -28,3 +34,14 @@ afterAll(async () => {
   }
   console.log('🛑 Test MongoDB Disconnected');
 });
+
+// Mock console methods to reduce noise in tests
+global.console = {
+  ...console,
+  // Uncomment to suppress console.log during tests
+  // log: jest.fn(),
+  debug: jest.fn(),
+  info: jest.fn(),
+  warn: jest.fn(),
+  error: jest.fn(),
+};

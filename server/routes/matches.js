@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const Match = require('../models/Match');
 const Student = require('../models/Student');
 const Mentor = require('../models/Mentor');
+const adminSMS = require('../utils/adminSMS');
 
 const router = express.Router();
 
@@ -63,22 +64,39 @@ router.get('/:id', async (req, res) => {
 router.post('/create-match', async (req, res) => {
   const { studentData, mentorData } = req.body;
   try {
+    console.log('Creating match with:', { studentData, mentorData });
     // Create student
     const student = new Student(studentData);
     await student.save();
+    console.log('Student created:', student);
 
     // Create mentor
     const mentor = new Mentor(mentorData);
     await mentor.save();
+    console.log('Mentor created:', mentor);
 
     // Create match
     const match = new Match({ student: student._id, mentor: mentor._id });
     await match.save();
+    console.log('Match created:', match);
 
-    //Send Welcome Message with Opt-In Request 
-    //User response is captured by Twilio webook
-    //On Success the 'opt-in field on the user schema is set to true
-    //Once all operations are complete the we return match, student, and mentor to the client
+    // Send Welcome Message with Opt-In Request to both mentor and student
+    const welcomeMsg = (user) => `Hello ${user.firstName} ${user.lastName} welcome to seedling sms please respond with START to begin using the service`;
+    try {
+      console.log('Sending welcome SMS to student:', student.phone, welcomeMsg(student));
+      console.log('Sending welcome SMS to mentor:', mentor.phone, welcomeMsg(mentor));
+      const results = await Promise.all([
+        adminSMS(student.phone, welcomeMsg(student), 'Student', student._id),
+        adminSMS(mentor.phone, welcomeMsg(mentor), 'Mentor', mentor._id)
+      ]);
+      console.log('Welcome SMS results:', results);
+    } catch (smsErr) {
+      console.error('Error sending welcome SMS:', smsErr);
+      if (smsErr && smsErr.response) {
+        console.error('Twilio error response:', smsErr.response);
+      }
+      // Continue even if SMS fails
+    }
 
     res.status(201).json({
       match,

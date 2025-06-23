@@ -1,6 +1,22 @@
 module.exports = {
     testEnvironment: 'node',
-    transform: {},
-    setupFilesAfterEnv: ['<rootDir>/jest.setup.js'], // Optional setup file for globals like DB setup
-    testMatch: ['**/tests/**/*.test.js'], // Look for tests in tests directory
-  };
+    testMatch: ['**/__tests__/**/*.js', '**/?(*.)+(spec|test).js'],
+    collectCoverageFrom: [
+        '**/*.js',
+        '!**/node_modules/**',
+        '!**/coverage/**',
+        '!**/jest.config.js',
+        '!**/jest.setup.js',
+        '!**/index.js',
+        '!**/vercel.js'
+    ],
+    coverageDirectory: 'coverage',
+    coverageReporters: ['text', 'lcov', 'html'],
+    setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
+    testTimeout: 10000,
+    verbose: true,
+    forceExit: true,
+    clearMocks: true,
+    resetMocks: true,
+    restoreMocks: true
+};

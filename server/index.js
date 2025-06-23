@@ -1,52 +1,96 @@
+require('dotenv').config();
+
 const express = require('express');
 const cors = require('cors');
 const http = require('http');
-const { initSocket } = require('./socket'); // Import socket initialization
+const { initSocket } = require('./socket');
 
-const matchesRouter = require('./routes/matches'); // Import matches router
-const mentorRouter = require('./routes/mentors'); // Import mentors router
-const studentRouter = require('./routes/students'); // Import students router
-const messagesRouter = require('./routes/messages'); // Import messages router
-const adminRouter = require('./routes/admin'); // Import admin router
+const matchesRouter = require('./routes/matches');
+const mentorRouter = require('./routes/mentors');
+const studentRouter = require('./routes/students');
+const messagesRouter = require('./routes/messages');
+const adminRouter = require('./routes/admin');
+const dashboardRouter = require('./routes/dashboard');
 
 const app = express();
 
+// Production-ready CORS configuration
 const corsOptions = {
-  origin: '*', // Allow frontend access
-  methods: 'GET,POST,PUT,DELETE',
-  allowedHeaders: 'Content-Type,Authorization',
-  credentials: true, // Allow cookies and auth headers
+  origin: process.env.NODE_ENV === 'production' 
+    ? [process.env.FRONTEND_URL, process.env.ADMIN_URL].filter(Boolean)
+    : '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true,
 };
 
-// Enable Cross-Origin Resource Sharing (CORS)
 app.use(cors(corsOptions));
 
-// Middleware for parsing JSON and form-encoded data
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Security middleware
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Define API routes for different entities
-app.use('/matches', matchesRouter); // Matches API
-app.use('/mentors', mentorRouter); // Mentors API
-app.use('/students', studentRouter); // Students API
-app.use('/api', messagesRouter); // Messages API
-app.use('/admin', adminRouter); // Admin API (corrected)
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.status(200).json({ 
+    status: 'OK', 
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development'
+  });
+});
 
-// Only connect to MongoDB if NOT in test environment
+// API routes
+app.use('/matches', matchesRouter);
+app.use('/mentors', mentorRouter);
+app.use('/students', studentRouter);
+app.use('/api', messagesRouter);
+app.use('/admin', adminRouter);
+app.use('/dashboard', dashboardRouter);
+
+// 404 handler
+app.use('*', (req, res) => {
+  res.status(404).json({ error: 'Route not found' });
+});
+
+// Global error handler
+app.use((err, req, res, next) => {
+  console.error('Global error handler:', err);
+  res.status(err.status || 500).json({
+    error: process.env.NODE_ENV === 'production' 
+      ? 'Internal server error' 
+      : err.message
+  });
+});
+
+// Connect to MongoDB if not in test environment
 if (process.env.NODE_ENV !== 'test') {
-  console.log('not equal ', process.env.NODE_ENV)
-  require('./db/connection'); // This will handle the connection
+  require('./db/connection');
 }
 
-// Create the HTTP server with express
 const server = http.createServer(app);
 
-// Initialize socket.io with the HTTP server
+// Initialize socket.io
 initSocket(server);
 
-// Set the port for the server
 const PORT = process.env.PORT || 4000;
 
 server.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`🚀 Server running on port ${PORT} in ${process.env.NODE_ENV || 'development'} mode`);
+});
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  console.log('SIGTERM received, shutting down gracefully');
+  server.close(() => {
+    console.log('Process terminated');
+    process.exit(0);
+  });
+});
+
+process.on('SIGINT', () => {
+  console.log('SIGINT received, shutting down gracefully');
+  server.close(() => {
+    console.log('Process terminated');
+    process.exit(0);
+  });
 });

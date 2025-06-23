@@ -1,0 +1,141 @@
+function matchPush(match, obj) {
+  console.log(match);
+  console.log(obj);
+  match.messages.push(obj); //should just be the id
+  match.markModified('messages');
+  console.log(match);
+  console.log(obj);
+  return match.save();
+}
+
+//Add message to match based on Mentor being sender
+function addMessageToMatch(obj) {
+  Match.findOne({ mentorphone: obj.sender }, function (err, match) {
+    if (err) {
+      return err;
+    }
+    return matchPush(match, obj);
+  });
+}
+//Add message to match based on Mentee being sender
+function addSMSToMatch(obj) {
+  Match.findOne({ studentphone: obj.sender }, function (err, match) {
+    if (err) {
+      return err;
+    }
+    return matchPush(match, obj);
+  });
+}
+
+function MentorSmsOptIn(x, y, z) {
+  console.log('mentor');
+
+  const messageBody = `${y} you can get in touch with your student ${z} by replying to this number`;
+  const to = '1' + x;
+  const from = process.env.TWILIO_PHONE;
+  console.log(to);
+  console.log(messageBody);
+  console.log(from);
+  client.messages
+    .create({
+      body: messageBody,
+      from: from,
+      to: to,
+    })
+    .then((message) => {
+      console.log('Message sent successfully from sms.', message.sid);
+      return message.sid;
+    });
+}
+
+function StudentSmsOptIn(x, y, z) {
+  const messageBody = `${y} You can get in touch with your mentor ${z} by replying to this number`;
+  const to = '1' + x;
+  const from = process.env.NEXMO_FROM;
+
+  if (x !== undefined) {
+    console.log(to);
+    console.log(messageBody);
+    console.log(from);
+  }
+
+  const from = process.env.TWILIO_PHONE;
+  console.log(to);
+  console.log(messageBody);
+  console.log(from);
+  client.messages
+    .create({
+      body: messageBody,
+      from: from,
+      to: to,
+    })
+    .then((message) => {
+      console.log('Message sent successfully from sms.', message.sid);
+      return message.sid;
+    });
+}
+
+async function optInFunc(sender) {
+  const fromMentor = await Match.find({ mentorphone: sender });
+  const fromStudent = await Match.find({ studentphone: sender });
+  console.log(fromMentor[0]);
+  console.log(fromStudent[0]);
+  // length finds which array has an object thus explaining if its from mentor or student
+  // the other will be an empty array
+  // from there we run an if else that figures which we are updating 'student or mentor' opt in
+  if (fromMentor.length) {
+    Match.updateOne(
+      { mentorphone: sender },
+      { $set: { mentorOptIn: true } },
+      function (err, res) {
+        if (err) throw err;
+        return res.nModified + ' record(s) updated';
+      }
+    );
+  } else {
+    Match.updateOne(
+      { studentphone: sender },
+      { $set: { studentOptIn: true } },
+      function (err, res) {
+        if (err) throw err;
+        return res.nModified + ' record(s) updated';
+      }
+    );
+  }
+  //Now send to recipient and update
+}
+
+async function optStatus(body, sender) {
+  console.log(body, sender);
+  //Step one find matches
+  const fromMentor = await Match.find({ mentorphone: sender });
+  const fromStudent = await Match.find({ studentphone: sender });
+  //Step Two pass onto function
+  if (fromMentor.length) {
+    console.log('mentor', fromMentor);
+    const recipient = fromMentor[0].studentphone;
+    processResult(fromMentor, body, sender, recipient, addMessageToMatch);
+  } else {
+    console.log('student', fromStudent, sender);
+    const recipient = fromStudent[0].mentorphone;
+    processResult(fromStudent, body, sender, recipient, addSMSToMatch);
+  }
+}
+
+function processResult(result, body, sender, receiver, func) {
+  console.log('res', result);
+  console.log('body', body);
+  console.log('sender', sender);
+  console.log('receiver', receiver);
+  let msgObj = {
+    message: body,
+    sender: sender,
+    recipient: receiver,
+  };
+  if (result[0].mentorOptIn && result[0].studentOptIn) {
+    console.log('both true');
+    return sendSMS(sender, receiver, body, func, msgObj);
+    from, to, messageBody, func, obj;
+  }
+  // return sendSMS(sender, receiver, body, addMessageToMatch, msgObj)
+}
