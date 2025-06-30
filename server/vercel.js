@@ -27,12 +27,12 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Define API routes
-app.use('/matches', matchesRouter);
-app.use('/mentors', mentorRouter);
-app.use('/students', studentRouter);
-app.use('/api', messagesRouter);
-app.use('/admin', adminRouter);
-app.use('/dashboard', dashboardRouter);
+app.use('/api/matches', matchesRouter);
+app.use('/api/mentors', mentorRouter);
+app.use('/api/students', studentRouter);
+app.use('/api/messages', messagesRouter);
+app.use('/api/admin', adminRouter);
+app.use('/api/dashboard', dashboardRouter);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
