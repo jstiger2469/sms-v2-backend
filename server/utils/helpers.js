@@ -75,6 +75,9 @@ async function optInFunc(sender) {
   const Mentor = require('../models/Mentor');
   const Student = require('../models/Student');
   const Match = require('../models/Match');
+  const twilio = require('twilio');
+  const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+  const TWILIO_PHONE = process.env.TWILIO_PHONE;
 
   // Try to find mentor by phone
   const mentor = await Mentor.findOne({ phone: sender });
@@ -83,6 +86,12 @@ async function optInFunc(sender) {
       { mentor: mentor._id },
       { $set: { mentorOptIn: true } }
     );
+    // Send confirmation SMS
+    await client.messages.create({
+      body: 'You have successfully opted in to SMS notifications.',
+      from: TWILIO_PHONE,
+      to: sender.length === 10 ? `+1${sender}` : `+${sender}`
+    });
     return;
   }
   // Try to find student by phone
@@ -92,6 +101,12 @@ async function optInFunc(sender) {
       { student: student._id },
       { $set: { studentOptIn: true } }
     );
+    // Send confirmation SMS
+    await client.messages.create({
+      body: 'You have successfully opted in to SMS notifications.',
+      from: TWILIO_PHONE,
+      to: sender.length === 10 ? `+1${sender}` : `+${sender}`
+    });
     return;
   }
   // If neither found, log error
