@@ -20,8 +20,8 @@ router.get('/', async (req, res) => {
         ],
       })
       .populate('messages.recipient', 'firstName lastName') // Populate recipient field in messages
-      .populate('mentor', 'firstName lastName') // Populate mentor data in the match
-      .populate('student', 'firstName lastName') // Populate student data in the match
+      .populate('mentor', 'firstName lastName phone') // Populate mentor data in the match
+      .populate('student', 'firstName lastName phone') // Populate student data in the match
       .exec();
     res.json(matches);
   } catch (err) {
