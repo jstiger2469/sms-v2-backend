@@ -51,7 +51,7 @@ function MentorSmsOptIn(x, y, z) {
 function StudentSmsOptIn(x, y, z) {
   const messageBody = `${y} You can get in touch with your mentor ${z} by replying to this number`;
   const to = '1' + x;
-  const from = process.env.NEXMO_FROM;
+  const from = process.env.TWILIO_PHONE;
 
   if (x !== undefined) {
     console.log(to);
@@ -59,10 +59,6 @@ function StudentSmsOptIn(x, y, z) {
     console.log(from);
   }
 
-  const from = process.env.TWILIO_PHONE;
-  console.log(to);
-  console.log(messageBody);
-  console.log(from);
   client.messages
     .create({
       body: messageBody,
@@ -76,33 +72,30 @@ function StudentSmsOptIn(x, y, z) {
 }
 
 async function optInFunc(sender) {
-  const fromMentor = await Match.find({ mentorphone: sender });
-  const fromStudent = await Match.find({ studentphone: sender });
-  console.log(fromMentor[0]);
-  console.log(fromStudent[0]);
-  // length finds which array has an object thus explaining if its from mentor or student
-  // the other will be an empty array
-  // from there we run an if else that figures which we are updating 'student or mentor' opt in
-  if (fromMentor.length) {
-    Match.updateOne(
-      { mentorphone: sender },
-      { $set: { mentorOptIn: true } },
-      function (err, res) {
-        if (err) throw err;
-        return res.nModified + ' record(s) updated';
-      }
+  const Mentor = require('../models/Mentor');
+  const Student = require('../models/Student');
+  const Match = require('../models/Match');
+
+  // Try to find mentor by phone
+  const mentor = await Mentor.findOne({ phone: sender });
+  if (mentor) {
+    await Match.updateMany(
+      { mentor: mentor._id },
+      { $set: { mentorOptIn: true } }
     );
-  } else {
-    Match.updateOne(
-      { studentphone: sender },
-      { $set: { studentOptIn: true } },
-      function (err, res) {
-        if (err) throw err;
-        return res.nModified + ' record(s) updated';
-      }
-    );
+    return;
   }
-  //Now send to recipient and update
+  // Try to find student by phone
+  const student = await Student.findOne({ phone: sender });
+  if (student) {
+    await Match.updateMany(
+      { student: student._id },
+      { $set: { studentOptIn: true } }
+    );
+    return;
+  }
+  // If neither found, log error
+  console.error('No mentor or student found for phone:', sender);
 }
 
 async function optStatus(body, sender) {
