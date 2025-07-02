@@ -128,7 +128,11 @@ function processResult(result, body, sender, receiver, func) {
   if (result[0].mentorOptIn && result[0].studentOptIn) {
     console.log('both true');
     return sendSMS(sender, receiver, body, func, msgObj);
-    from, to, messageBody, func, obj;
   }
   // return sendSMS(sender, receiver, body, addMessageToMatch, msgObj)
 }
+
+module.exports = {
+  optInFunc,
+  // add other exports as needed
+};
