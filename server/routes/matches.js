@@ -63,6 +63,11 @@ router.get('/:id', async (req, res) => {
 // Create a match
 router.post('/create-match', async (req, res) => {
   const { studentData, mentorData } = req.body;
+  // Validate phone numbers (at least 10 digits)
+  const isValidPhone = (phone) => typeof phone === 'string' && phone.replace(/\D/g, '').length >= 10;
+  if (!isValidPhone(studentData.phone) || !isValidPhone(mentorData.phone)) {
+    return res.status(400).json({ message: 'Both student and mentor must have valid phone numbers with at least 10 digits.' });
+  }
   try {
     console.log('Creating match with:', { studentData, mentorData });
     // Create student
