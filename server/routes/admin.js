@@ -683,4 +683,22 @@ router.get('/admin-by-auth0id/:auth0id', async (req, res) => {
   }
 });
 
+// Create an admin record in MongoDB
+router.post('/create-admin', async (req, res) => {
+  const { auth0Id, name, email, role } = req.body;
+  if (!auth0Id || !email) {
+    return res.status(400).json({ error: 'Missing required fields' });
+  }
+  try {
+    const existing = await Admin.findOne({ auth0Id });
+    if (existing) return res.status(200).json(existing);
+
+    const admin = new Admin({ auth0Id, name, email, role });
+    await admin.save();
+    res.status(201).json(admin);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to create admin' });
+  }
+});
+
 module.exports = router;
