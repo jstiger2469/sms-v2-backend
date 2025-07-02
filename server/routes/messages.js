@@ -6,6 +6,7 @@ const Student = require('../models/Student');
 const Notification = require('../models/Notifications'); // Assuming Notification model is in models/Notification
 const adminSMS = require('../utils/adminSMS');
 const inboundSMS = require('../utils/inboundSMS');
+const { optInFunc } = require('../utils/helpers');
 require('dotenv').config();
 const accountSid = process.env.TWILIO_ACCOUNT_SID;
 const authToken = process.env.TWILIO_AUTH_TOKEN;
