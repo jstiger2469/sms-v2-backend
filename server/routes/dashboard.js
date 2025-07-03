@@ -188,6 +188,7 @@ router.get('/response-rate-by-sender-type', async (req, res) => {
     // Build a map: { recipientId: [messages sent to them] }
     const messagesByRecipient = {};
     messages.forEach(msg => {
+      if (!msg.recipient) return; // skip if recipient is null
       const key = msg.recipient.toString();
       if (!messagesByRecipient[key]) messagesByRecipient[key] = [];
       messagesByRecipient[key].push(msg);
@@ -197,6 +198,7 @@ router.get('/response-rate-by-sender-type', async (req, res) => {
     let studentTotal = 0, studentReplied = 0;
 
     for (const msg of messages) {
+      if (!msg.sender || !msg.recipient) continue; // skip if sender or recipient is null
       if (msg.senderModel !== 'Mentor' && msg.senderModel !== 'Student') continue;
       const isMentor = msg.senderModel === 'Mentor';
       if (isMentor) mentorTotal++;
@@ -205,6 +207,7 @@ router.get('/response-rate-by-sender-type', async (req, res) => {
       // Look for a reply from recipient to sender within 12 hours
       const possibleReplies = messagesByRecipient[msg.sender.toString()] || [];
       const replied = possibleReplies.some(reply =>
+        reply.sender && reply.recipient &&
         reply.sender.toString() === msg.recipient.toString() &&
         reply.recipient.toString() === msg.sender.toString() &&
         new Date(reply.timestamp) > new Date(msg.timestamp) &&
