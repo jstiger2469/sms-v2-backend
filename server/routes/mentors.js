@@ -1,17 +1,43 @@
 const express = require('express');
 const mongoose = require('mongoose');
-const Match = require('../models/Match'); // Ensure this path is correct
+const Mentor = require('../models/Mentor');
 
 const router = express.Router();
 
-//Create mentor
+// Update a mentor (currently supports phone updates)
+router.put('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { phone } = req.body;
 
-//Update Mentor
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ error: 'Invalid mentor ID format' });
+    }
 
-//Retrieve all mentors
+    if (typeof phone !== 'string') {
+      return res.status(400).json({ error: 'Phone must be a string' });
+    }
 
-//Retrieve all messages associated with a mentor
+    const numericDigits = phone.replace(/\D/g, '');
+    if (numericDigits.length < 10) {
+      return res.status(400).json({ error: 'Phone number must have at least 10 digits' });
+    }
 
-//Create Admin user
+    const updatedMentor = await Mentor.findByIdAndUpdate(
+      id,
+      { phone },
+      { new: true }
+    );
+
+    if (!updatedMentor) {
+      return res.status(404).json({ error: 'Mentor not found' });
+    }
+
+    return res.json(updatedMentor);
+  } catch (err) {
+    console.error('Error updating mentor:', err);
+    return res.status(500).json({ error: 'Failed to update mentor' });
+  }
+});
 
 module.exports = router;
