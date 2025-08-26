@@ -144,3 +144,61 @@ router.delete('/delete-match/:id', async (req, res) => {
 });
 
 module.exports = router;
+ 
+// Resend opt-in/welcome SMS to both mentor and student for a match
+router.post('/resend-opt-in/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const match = await Match.findById(id)
+      .populate('student')
+      .populate('mentor');
+
+    if (!match) {
+      return res.status(404).json({ message: 'Match not found' });
+    }
+
+    const welcomeMsg = (user) => `Hello ${user.firstName} ${user.lastName} welcome to Seedling SMS please respond with START to begin using the service.\n\nHola ${user.firstName} ${user.lastName} ¡Bienvenidos a Seedling SMS! Responda con START para comenzar a usar el servicio.`;
+
+    const results = await Promise.allSettled([
+      adminSMS(match.student.phone, welcomeMsg(match.student), 'Student', match.student._id),
+      adminSMS(match.mentor.phone, welcomeMsg(match.mentor), 'Mentor', match.mentor._id),
+    ]);
+
+    const failed = results.filter(r => r.status === 'rejected');
+    if (failed.length > 0) {
+      return res.status(207).json({ message: 'Opt-in resend partially failed', results });
+    }
+
+    return res.status(200).json({ message: 'Opt-in messages resent successfully', results });
+  } catch (error) {
+    console.error('Error resending opt-in:', error);
+    return res.status(500).json({ message: 'Failed to resend opt-in messages' });
+  }
+});
+
+// Resend opt-in/welcome SMS to a specific participant (mentor|student)
+router.post('/resend-opt-in/:id/:role', async (req, res) => {
+  const { id, role } = req.params;
+  try {
+    if (role !== 'mentor' && role !== 'student') {
+      return res.status(400).json({ message: 'Invalid role. Use "mentor" or "student".' });
+    }
+
+    const match = await Match.findById(id)
+      .populate('student')
+      .populate('mentor');
+
+    if (!match) {
+      return res.status(404).json({ message: 'Match not found' });
+    }
+
+    const user = role === 'mentor' ? match.mentor : match.student;
+    const welcomeMsg = (u) => `Hello ${u.firstName} ${u.lastName} welcome to Seedling SMS please respond with START to begin using the service.\n\nHola ${u.firstName} ${u.lastName} ¡Bienvenidos a Seedling SMS! Responda con START para comenzar a usar el servicio.`;
+
+    const result = await adminSMS(user.phone, welcomeMsg(user), role === 'mentor' ? 'Mentor' : 'Student', user._id);
+    return res.status(200).json({ message: `Opt-in message resent to ${role}.`, result });
+  } catch (error) {
+    console.error('Error resending opt-in (per user):', error);
+    return res.status(500).json({ message: 'Failed to resend opt-in message' });
+  }
+});
