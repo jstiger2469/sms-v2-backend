@@ -359,12 +359,12 @@ router.post('/inbound', (req, res) => {
   console.log('=== INBOUND SMS RECEIVED ===');
   console.log('Request body:', req.body);
   
-  let finalSender;
-  if (req.body.msisdn) {
-    finalSender = req.body.msisdn.substr(1);
-  } else {
-    finalSender = req.body.From.substr(2);
-  }
+  // Normalize sender to 10-digit for DB lookup
+  const rawSender = req.body.msisdn || req.body.From || '';
+  const digits = String(rawSender).replace(/\D/g, '');
+  const finalSender = digits.length === 11 && digits.startsWith('1')
+    ? digits.slice(1)
+    : digits;
 
   const body = req.body.text || req.body.Body;
   const optIn = 'START';

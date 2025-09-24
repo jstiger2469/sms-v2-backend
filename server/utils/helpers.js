@@ -79,8 +79,11 @@ async function optInFunc(sender) {
   const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
   const TWILIO_PHONE = process.env.TWILIO_PHONE;
 
+  // Normalize to digits for DB lookup (we store digits only)
+  const digits = String(sender || '').replace(/\D/g, '');
+
   // Try to find mentor by phone
-  const mentor = await Mentor.findOne({ phone: sender });
+  const mentor = await Mentor.findOne({ phone: digits });
   if (mentor) {
     await Match.updateMany(
       { mentor: mentor._id },
@@ -90,12 +93,12 @@ async function optInFunc(sender) {
     await client.messages.create({
       body: 'You have successfully opted in to SMS notifications.',
       from: TWILIO_PHONE,
-      to: sender.length === 10 ? `+1${sender}` : `+${sender}`
+      to: digits.length === 10 ? `+1${digits}` : `+${digits}`
     });
     return;
   }
   // Try to find student by phone
-  const student = await Student.findOne({ phone: sender });
+  const student = await Student.findOne({ phone: digits });
   if (student) {
     await Match.updateMany(
       { student: student._id },
@@ -105,12 +108,12 @@ async function optInFunc(sender) {
     await client.messages.create({
       body: 'You have successfully opted in to SMS notifications.',
       from: TWILIO_PHONE,
-      to: sender.length === 10 ? `+1${sender}` : `+${sender}`
+      to: digits.length === 10 ? `+1${digits}` : `+${digits}`
     });
     return;
   }
   // If neither found, log error
-  console.error('No mentor or student found for phone:', sender);
+  console.error('No mentor or student found for phone:', digits);
 }
 
 async function optStatus(body, sender) {
