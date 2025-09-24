@@ -87,12 +87,16 @@ router.post('/create-match', async (req, res) => {
 
     // Send Welcome Message with Opt-In Request to both mentor and student
     const welcomeMsg = (user) => `Hello ${user.firstName} ${user.lastName} welcome to Seedling SMS please respond with START to begin using the service.\n\nHola ${user.firstName} ${user.lastName} ¡Bienvenidos a Seedling SMS! Responda con START para comenzar a usar el servicio.`;
+    const normalize = (p) => {
+      const d = String(p || '').replace(/\D/g, '');
+      return d.length === 10 ? `+1${d}` : `+${d}`;
+    };
     try {
       console.log('Sending welcome SMS to student:', student.phone, welcomeMsg(student));
       console.log('Sending welcome SMS to mentor:', mentor.phone, welcomeMsg(mentor));
       const results = await Promise.all([
-        adminSMS(student.phone, welcomeMsg(student), 'Student', student._id),
-        adminSMS(mentor.phone, welcomeMsg(mentor), 'Mentor', mentor._id)
+        adminSMS(normalize(student.phone), welcomeMsg(student), 'Student', student._id),
+        adminSMS(normalize(mentor.phone), welcomeMsg(mentor), 'Mentor', mentor._id)
       ]);
       console.log('Welcome SMS results:', results);
     } catch (smsErr) {

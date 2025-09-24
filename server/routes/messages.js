@@ -217,11 +217,15 @@ function sendSMS(from, to, messageBody, callback, obj) {
 
   console.log('Twilio client created, sending SMS...');
 
+  // Normalize destination to E.164
+  const digits = String(to || '').replace(/\D/g, '');
+  const toE164 = digits.length === 10 ? `+1${digits}` : `+${digits}`;
+
   client.messages
     .create({
       body: messageBody,
       from: process.env.TWILIO_PHONE,
-      to: to,
+      to: toE164,
     })
     .then((message) => {
       console.log('✅ SMS sent successfully via Twilio!');
