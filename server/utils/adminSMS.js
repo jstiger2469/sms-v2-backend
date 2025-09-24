@@ -8,11 +8,13 @@ console.log('TWILIO_PHONE:', process.env.TWILIO_PHONE);
 
 const adminSMS = async (recipientPhone, messageContent, recipientModel, recipientId) => {
   try {
-    console.log('[adminSMS] Params:', { recipientPhone, messageContent, recipientModel, recipientId });
+    const digits = String(recipientPhone || '').replace(/\D/g, '');
+    const to = digits.length === 10 ? `+1${digits}` : `+${digits}`;
+    console.log('[adminSMS] Params:', { recipientPhone: to, recipientModel, recipientId });
     const response = await client.messages.create({
       body: messageContent,
       from: process.env.TWILIO_PHONE,
-      to: recipientPhone,
+      to,
     });
 
     console.log(`[adminSMS] Message successfully sent to ${recipientPhone}. SID: ${response.sid}`);

@@ -25,7 +25,7 @@ router.put('/:id', async (req, res) => {
 
     const updatedMentor = await Mentor.findByIdAndUpdate(
       id,
-      { phone },
+      { phone: numericDigits },
       { new: true }
     );
 

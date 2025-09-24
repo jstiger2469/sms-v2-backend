@@ -25,7 +25,7 @@ router.put('/:id', async (req, res) => {
 
     const updatedStudent = await Student.findByIdAndUpdate(
       id,
-      { phone },
+      { phone: numericDigits },
       { new: true }
     );
 

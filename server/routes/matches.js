@@ -159,9 +159,14 @@ router.post('/resend-opt-in/:id', async (req, res) => {
 
     const welcomeMsg = (user) => `Hello ${user.firstName} ${user.lastName} welcome to Seedling SMS please respond with START to begin using the service.\n\nHola ${user.firstName} ${user.lastName} ¡Bienvenidos a Seedling SMS! Responda con START para comenzar a usar el servicio.`;
 
+    const norm = (p) => {
+      const d = String(p || '').replace(/\D/g, '');
+      return d.length === 10 ? `+1${d}` : `+${d}`;
+    };
+
     const results = await Promise.allSettled([
-      adminSMS(match.student.phone, welcomeMsg(match.student), 'Student', match.student._id),
-      adminSMS(match.mentor.phone, welcomeMsg(match.mentor), 'Mentor', match.mentor._id),
+      adminSMS(norm(match.student.phone), welcomeMsg(match.student), 'Student', match.student._id),
+      adminSMS(norm(match.mentor.phone), welcomeMsg(match.mentor), 'Mentor', match.mentor._id),
     ]);
 
     const failed = results.filter(r => r.status === 'rejected');
@@ -193,6 +198,10 @@ router.post('/resend-opt-in/:id/:role', async (req, res) => {
     }
 
     const user = role === 'mentor' ? match.mentor : match.student;
+    const digits = String(user.phone || '').replace(/\D/g, '');
+    if (digits.length < 10) {
+      return res.status(400).json({ message: 'Invalid phone number for user' });
+    }
     const welcomeMsg = (u) => `Hello ${u.firstName} ${u.lastName} welcome to Seedling SMS please respond with START to begin using the service.\n\nHola ${u.firstName} ${u.lastName} ¡Bienvenidos a Seedling SMS! Responda con START para comenzar a usar el servicio.`;
 
     const result = await adminSMS(user.phone, welcomeMsg(user), role === 'mentor' ? 'Mentor' : 'Student', user._id);
