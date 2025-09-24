@@ -215,3 +215,36 @@ router.post('/resend-opt-in/:id/:role', async (req, res) => {
     return res.status(500).json({ message: 'Failed to resend opt-in message' });
   }
 });
+
+// Set or toggle opt-in status for mentor or student on a match
+router.put('/opt-in/:id/:role', async (req, res) => {
+  const { id, role } = req.params;
+  const { value } = req.body || {};
+  try {
+    if (role !== 'mentor' && role !== 'student') {
+      return res.status(400).json({ message: 'Invalid role. Use "mentor" or "student".' });
+    }
+
+    const match = await Match.findById(id);
+    if (!match) {
+      return res.status(404).json({ message: 'Match not found' });
+    }
+
+    const key = role === 'mentor' ? 'mentorOptIn' : 'studentOptIn';
+    if (typeof value === 'boolean') {
+      match[key] = value;
+    } else {
+      match[key] = !match[key];
+    }
+    await match.save();
+
+    return res.status(200).json({
+      message: `${role} opt-in updated`,
+      mentorOptIn: match.mentorOptIn,
+      studentOptIn: match.studentOptIn,
+    });
+  } catch (error) {
+    console.error('Error updating opt-in:', error);
+    return res.status(500).json({ message: 'Failed to update opt-in' });
+  }
+});
