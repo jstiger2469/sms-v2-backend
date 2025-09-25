@@ -33,6 +33,10 @@ router.put('/:id', async (req, res) => {
       return res.status(404).json({ error: 'Mentor not found' });
     }
 
+    // Reset opt-in for any matches tied to this mentor
+    const Match = require('../models/Match');
+    await Match.updateMany({ mentor: updatedMentor._id }, { $set: { mentorOptIn: false } });
+
     return res.json(updatedMentor);
   } catch (err) {
     console.error('Error updating mentor:', err);

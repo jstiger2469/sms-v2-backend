@@ -33,6 +33,10 @@ router.put('/:id', async (req, res) => {
       return res.status(404).json({ error: 'Student not found' });
     }
 
+    // Reset opt-in for any matches tied to this student
+    const Match = require('../models/Match');
+    await Match.updateMany({ student: updatedStudent._id }, { $set: { studentOptIn: false } });
+
     return res.json(updatedStudent);
   } catch (err) {
     console.error('Error updating student:', err);
