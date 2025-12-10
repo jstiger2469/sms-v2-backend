@@ -11,6 +11,7 @@ const studentRouter = require('./routes/students');
 const messagesRouter = require('./routes/messages');
 const adminRouter = require('./routes/admin');
 const dashboardRouter = require('./routes/dashboard');
+const pulseRouter = require('./routes/pulse');
 
 const app = express();
 
@@ -46,6 +47,7 @@ app.use('/api/students', studentRouter);
 app.use('/api/messages', messagesRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/dashboard', dashboardRouter);
+app.use('/api/pulse', pulseRouter);
 
 // 404 handler
 app.use('*', (req, res) => {

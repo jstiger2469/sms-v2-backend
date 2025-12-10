@@ -7,6 +7,7 @@ const Notification = require('../models/Notifications'); // Assuming Notificatio
 const adminSMS = require('../utils/adminSMS');
 const inboundSMS = require('../utils/inboundSMS');
 const { optInFunc } = require('../utils/helpers');
+const pulseService = require('../services/pulse.service');
 require('dotenv').config();
 const accountSid = process.env.TWILIO_ACCOUNT_SID;
 const authToken = process.env.TWILIO_AUTH_TOKEN;
@@ -68,10 +69,13 @@ async function addMessageToMatch(obj) {
     const savedMessage = await newMessage.save();
     console.log('New message saved:', savedMessage);
 
-    // Step 3: Update the match with the new message ID
+    // Step 3: Update the match with the new message ID and timestamp
     const updatedMatch = await Match.findByIdAndUpdate(
       match._id,
-      { $push: { messages: savedMessage._id } }, // Push the new message ID
+      { 
+        $push: { messages: savedMessage._id },
+        $set: { lastMessageAt: new Date() }
+      }, // Push the new message ID and update timestamp
       { new: true } // Return the updated match document
     );
 
@@ -100,6 +104,11 @@ async function addMessageToMatch(obj) {
     io.emit('new-notification', savedNotification);
 
     console.log('Match updated with new message ID:', updatedMatch);
+
+    // Fire-and-forget sentiment analysis
+    pulseService.processMessageSentiment(match._id, content).catch(err => 
+      console.error('Background sentiment analysis error:', err)
+    );
 
     return { message: savedMessage, match: updatedMatch };
   } catch (error) {
