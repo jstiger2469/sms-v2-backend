@@ -4,28 +4,43 @@ const Mentor = require('../models/Mentor');
 
 const router = express.Router();
 
-// Update a mentor (currently supports phone updates)
+// Update a mentor (phone, specialties, availability)
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { phone } = req.body;
+    const { phone, specialties, isAvailable } = req.body;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({ error: 'Invalid mentor ID format' });
     }
 
-    if (typeof phone !== 'string') {
-      return res.status(400).json({ error: 'Phone must be a string' });
+    const updateData = {};
+
+    if (phone !== undefined) {
+      if (typeof phone !== 'string') {
+        return res.status(400).json({ error: 'Phone must be a string' });
+      }
+      const numericDigits = phone.replace(/\D/g, '');
+      if (numericDigits.length < 10) {
+        return res.status(400).json({ error: 'Phone number must have at least 10 digits' });
+      }
+      updateData.phone = numericDigits;
     }
 
-    const numericDigits = phone.replace(/\D/g, '');
-    if (numericDigits.length < 10) {
-      return res.status(400).json({ error: 'Phone number must have at least 10 digits' });
+    if (specialties !== undefined) {
+      if (!Array.isArray(specialties)) {
+        return res.status(400).json({ error: 'Specialties must be an array of strings' });
+      }
+      updateData.specialties = specialties;
+    }
+
+    if (isAvailable !== undefined) {
+      updateData.isAvailable = Boolean(isAvailable);
     }
 
     const updatedMentor = await Mentor.findByIdAndUpdate(
       id,
-      { phone: numericDigits },
+      updateData,
       { new: true }
     );
 
@@ -33,9 +48,11 @@ router.put('/:id', async (req, res) => {
       return res.status(404).json({ error: 'Mentor not found' });
     }
 
-    // Reset opt-in for any matches tied to this mentor
-    const Match = require('../models/Match');
-    await Match.updateMany({ mentor: updatedMentor._id }, { $set: { mentorOptIn: false } });
+    // Reset opt-in if phone changed
+    if (updateData.phone) {
+      const Match = require('../models/Match');
+      await Match.updateMany({ mentor: updatedMentor._id }, { $set: { mentorOptIn: false } });
+    }
 
     return res.json(updatedMentor);
   } catch (err) {

@@ -7,6 +7,7 @@ const studentSchema = new Schema({
   lastName: { type: String, required: true },
   email: { type: String },
   phone: { type: String },
+  organization: { type: Schema.Types.ObjectId, ref: 'Organization' }, // Multi-tenancy
 });
 
 // Create and export the Student model

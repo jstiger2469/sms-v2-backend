@@ -12,6 +12,7 @@ const messagesRouter = require('./routes/messages');
 const adminRouter = require('./routes/admin');
 const dashboardRouter = require('./routes/dashboard');
 const pulseRouter = require('./routes/pulse');
+const publicApiRouter = require('./routes/api/v1');
 
 const app = express();
 
@@ -48,6 +49,7 @@ app.use('/api/messages', messagesRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/dashboard', dashboardRouter);
 app.use('/api/pulse', pulseRouter);
+app.use('/api/v1', publicApiRouter); // Public API for integrations
 
 // 404 handler
 app.use('*', (req, res) => {

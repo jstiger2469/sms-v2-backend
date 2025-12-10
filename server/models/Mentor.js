@@ -9,6 +9,7 @@ const mentorSchema = new Schema({
   phone: { type: String, required: true, unique: true },
   specialties: [{ type: String }], // Array of tags for routing (e.g. 'financial', 'career')
   isAvailable: { type: Boolean, default: true }, // For routing availability
+  organization: { type: Schema.Types.ObjectId, ref: 'Organization' }, // Multi-tenancy
 });
 
 // Create and export the Mentor model

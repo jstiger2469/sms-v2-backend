@@ -18,6 +18,7 @@ const matchSchema = new Schema({
   studentOptIn: { type: Boolean, default: false },
   lastMessageAt: { type: Date },
   healthScore: { type: Number, min: 0, max: 100, default: 100 },
+  organization: { type: Schema.Types.ObjectId, ref: 'Organization' }, // Multi-tenancy
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now },
 });
