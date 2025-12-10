@@ -1,9 +1,9 @@
 const express = require('express');
-const Match = require('../models/Match');
+const Match = require('../models/Match'); // Ensure this path is correct
 const Message = require('../models/Message');
 const Mentor = require('../models/Mentor');
 const Student = require('../models/Student');
-const Notification = require('../models/Notifications');
+const Notification = require('../models/Notifications'); // Assuming Notification model is in models/Notification
 const adminSMS = require('../utils/adminSMS');
 const inboundSMS = require('../utils/inboundSMS');
 const { optInFunc } = require('../utils/helpers');
@@ -13,7 +13,7 @@ const accountSid = process.env.TWILIO_ACCOUNT_SID;
 const authToken = process.env.TWILIO_AUTH_TOKEN;
 const client = require('twilio')(accountSid, authToken);
 const twilioNumber = process.env.TWILIO_PHONE;
-const { getIo } = require('../socket');
+const { getIo } = require('../socket'); // Import getIo from socket.js
 
 const router = express.Router();
 
@@ -25,12 +25,12 @@ router.post('/send-admin-sms', async (req, res) => {
   console.log(req.body)
   try {
     adminSMS(
+      'Admin',
       to,
       messageBody,
-      'Admin',
-      null, // No ID for generic admin messages
-    ).then((response) => res.status(200).json({ success: true, data: response }))
-     .catch((error) => res.status(500).json({ success: false, error }));
+      (response) => res.status(200).json({ success: true, data: response }),
+      (error) => res.status(500).json({ success: false, error })
+    );
   } catch (error) {
     console.error('Error in admin SMS route:', error);
     res.status(500).json({ success: false, error: 'Failed to send SMS' });
@@ -63,7 +63,7 @@ async function addMessageToMatch(obj) {
       recipient,
       senderModel,
       recipientModel,
-      match: match._id,
+      match: match._id, // Associate the match ID
     });
 
     const savedMessage = await newMessage.save();
@@ -75,8 +75,8 @@ async function addMessageToMatch(obj) {
       { 
         $push: { messages: savedMessage._id },
         $set: { lastMessageAt: new Date() }
-      }, 
-      { new: true }
+      }, // Push the new message ID and update timestamp
+      { new: true } // Return the updated match document
     );
 
     if (!updatedMatch) {
@@ -96,10 +96,11 @@ async function addMessageToMatch(obj) {
       action: 'Message Sent',
     });
 
+    console.log('Notification:', notification);
     const savedNotification = await notification.save();
 
     // Step 6: Emit notification to all connected clients
-    const io = getIo();
+    const io = getIo(); // Get the socket.io instance
     io.emit('new-notification', savedNotification);
 
     console.log('Match updated with new message ID:', updatedMatch);
@@ -144,26 +145,28 @@ async function addSMSToMatch(obj) {
     console.log('Recipient (Mentor) ID:', recipient);
 
     // Step 2: Create a new SMS message
+    console.log('Step 2: Creating new SMS message...');
     const newMessage = new Message({
       content,
       sender,
       recipient,
       senderModel,
       recipientModel,
-      match: match._id,
+      match: match._id, // Associate the match ID
     });
 
     const savedMessage = await newMessage.save();
     console.log('✅ New SMS saved with ID:', savedMessage._id);
 
-    // Step 3: Update the match with the new message ID
+    // Step 3: Update the match with the new SMS ID
+    console.log('Step 3: Updating match with new message...');
     const updatedMatch = await Match.findByIdAndUpdate(
       match._id,
       { 
         $push: { messages: savedMessage._id },
         $set: { lastMessageAt: new Date() }
-      },
-      { new: true } 
+      }, // Push the new message ID and update timestamp
+      { new: true } // Return the updated match document
     );
 
     if (!updatedMatch) {
@@ -174,6 +177,7 @@ async function addSMSToMatch(obj) {
     console.log('✅ Match updated with new message ID');
 
     // Step 4: Fetch the sender and recipient names
+    console.log('Step 4: Fetching sender and recipient names...');
     const senderName = await Student.findById(savedMessage.sender).exec();
     const recipientName = await Mentor.findById(savedMessage.recipient).exec();
 
@@ -181,6 +185,7 @@ async function addSMSToMatch(obj) {
     console.log('Recipient name:', recipientName.firstName + ' ' + recipientName.lastName);
 
     // Step 5: Create a notification for the new SMS
+    console.log('Step 5: Creating notification...');
     const notification = new Notification({
       messageContent: savedMessage.content,
       senderName: senderName.firstName,
@@ -194,16 +199,18 @@ async function addSMSToMatch(obj) {
     console.log('✅ Notification saved with ID:', savedNotification._id);
 
     // Step 6: Emit notification to all connected clients
-    const io = getIo();
+    console.log('Step 6: Emitting notification to connected clients...');
+    const io = getIo(); // Get the socket.io instance
     io.emit('new-notification', savedNotification);
     console.log('✅ Notification emitted to all clients');
+
+    console.log('✅ STUDENT -> MENTOR MESSAGE FLOW COMPLETED SUCCESSFULLY');
 
     // Fire-and-forget sentiment analysis
     pulseService.processMessageSentiment(match._id, content).catch(err => 
       console.error('Background sentiment analysis error:', err)
     );
 
-    console.log('✅ STUDENT -> MENTOR MESSAGE FLOW COMPLETED SUCCESSFULLY');
     return { message: savedMessage, match: updatedMatch };
   } catch (error) {
     console.error('❌ ERROR in addSMSToMatch:', error.message);
@@ -253,93 +260,108 @@ function sendSMS(from, to, messageBody, callback, obj) {
 }
 
 /**
- * Handle opt-in and opt-out statuses with Smart Routing
+ * Handle opt-in and opt-out statuses with Smart Routing (Topic-Based)
  */
 async function optStatus(body, sender) {
   try {
-    console.log('=== SMART ROUTING MESSAGE FLOW START ===');
+    console.log('=== STUDENT/MENTOR MESSAGE FLOW START ===');
     console.log('Received message:', body, 'Sender phone:', sender);
 
-    // Step 1: Identify Sender
+    // Step 1: Check if the sender is a Mentor or Student
+    console.log('Step 1: Looking up sender in database...');
     const mentor = await Mentor.findOne({ phone: sender }).exec();
-    const student = mentor ? null : await Student.findOne({ phone: sender }).exec();
+    const student = mentor
+      ? null
+      : await Student.findOne({ phone: sender }).exec();
+
+    console.log('Mentor found:', mentor ? mentor.firstName + ' ' + mentor.lastName : 'No mentor found');
+    console.log('Student found:', student ? student.firstName + ' ' + student.lastName : 'No student found');
 
     if (!mentor && !student) {
       console.error('ERROR: Sender not found in Mentor or Student collections');
       throw new Error('Sender not found in Mentor or Student collections');
     }
 
-    // Step 2: Detect Routing Hashtags (e.g. #finance)
-    const hashtagMatch = body.match(/^#(\w+)/);
-    const targetSpecialty = hashtagMatch ? hashtagMatch[1].toLowerCase() : null;
-    
-    // Clean body if routed
-    const cleanBody = targetSpecialty ? body.replace(/^#\w+\s*/, '') : body;
-
-    console.log('Routing Tag:', targetSpecialty);
-
-    // Step 3: Find Matches & Route
+    // Step 2: Smart Routing Logic
     let match, recipientDoc, senderDoc, recipientPhone;
 
+    // Detect hashtag for routing (e.g. #financial, #career)
+    const hashtagMatch = body.match(/^#(\w+)/);
+    const topic = hashtagMatch ? hashtagMatch[1].toLowerCase() : null;
+
     if (mentor) {
-      // Mentor -> Student (Single path mostly, unless mentor has multiple students)
-      // For now, assume mentor texts their primary/most active student match
+      // Mentor sending: Route to the student they are matched with (1:1 for now, or last active)
+      // Future: If mentor has multiple students, we might need a "Reply-To" context or last-message thread
+      console.log('Processing MENTOR sending message...');
+      // Find matches for this mentor, sort by last active
       const matches = await Match.find({ mentor: mentor._id }).sort({ lastMessageAt: -1 }).exec();
-      match = matches[0]; // Pick most recent
       
-      if (match) {
-        recipientDoc = await Student.findById(match.student).exec();
-        senderDoc = mentor;
+      if (!matches || matches.length === 0) {
+        console.error('ERROR: No match found for mentor:', mentor.firstName);
+        throw new Error('No match found for mentor');
       }
+
+      // Default to most recent match
+      match = matches[0];
+      
+      recipientDoc = await Student.findById(match.student).exec();
+      recipientPhone = recipientDoc.phone;
+      senderDoc = mentor;
+      console.log('Match selected (Mentor -> Student):', mentor.firstName, '->', recipientDoc.firstName);
+
     } else if (student) {
-      // Student -> Mentor (Smart Routing!)
-      let matches = await Match.find({ student: student._id })
+      // Student sending: Check for topic routing
+      console.log('Processing STUDENT sending message...');
+      
+      const matches = await Match.find({ student: student._id })
         .populate('mentor')
-        .sort({ lastMessageAt: -1 }) // Default: most recent
+        .sort({ lastMessageAt: -1 })
         .exec();
 
-      if (targetSpecialty) {
-        // Find mentor with matching specialty
-        const specializedMatch = matches.find(m => 
-          m.mentor.specialties && 
-          m.mentor.specialties.some(s => s.toLowerCase() === targetSpecialty)
+      if (!matches || matches.length === 0) {
+        console.error('ERROR: No match found for student:', student.firstName);
+        throw new Error('No match found for student');
+      }
+
+      if (topic) {
+        console.log(`Topic detected: #${topic}. Searching for specialist...`);
+        // Find a mentor in the student's matches who has this specialty
+        const specialistMatch = matches.find(m => 
+          m.mentor && m.mentor.specialties && m.mentor.specialties.map(s => s.toLowerCase()).includes(topic)
         );
-        
-        if (specializedMatch) {
-          console.log(`✅ Smart Routing: Found mentor with specialty '${targetSpecialty}'`);
-          match = specializedMatch;
+
+        if (specialistMatch) {
+          match = specialistMatch;
+          console.log(`✅ Specialist found for #${topic}:`, match.mentor.firstName);
         } else {
-          console.log(`⚠️ Smart Routing: No mentor found for '${targetSpecialty}'. Falling back to primary.`);
-          match = matches[0];
+          console.log(`⚠️ No specialist found for #${topic}. Falling back to primary.`);
+          match = matches[0]; // Fallback to primary/last active
         }
       } else {
-        match = matches[0]; // Default to most recent
+        // No topic, route to primary (last active)
+        match = matches[0];
       }
 
-      if (match) {
-        recipientDoc = match.mentor; // Already populated
-        senderDoc = student;
-      }
+      recipientDoc = await Mentor.findById(match.mentor).exec();
+      recipientPhone = recipientDoc.phone;
+      senderDoc = student;
+      console.log('Match selected (Student -> Mentor):', student.firstName, '->', recipientDoc.firstName);
     }
 
-    if (!match) {
-      throw new Error('No active match found for routing');
-    }
+    console.log('Recipient phone:', recipientPhone);
+    console.log('Opt-in status - Mentor:', match.mentorOptIn, 'Student:', match.studentOptIn);
 
-    recipientPhone = recipientDoc.phone;
-    console.log('Match locked:', match._id);
-    console.log('Routing from', senderDoc.firstName, 'to', recipientDoc.firstName);
-
+    // Step 3: Process the result
+    console.log('Step 3: Processing message result...');
     processResult(
       match,
-      cleanBody,
+      body,
       sender,
       recipientPhone,
       senderDoc.firstName,
       recipientDoc.firstName,
       mentor ? addMessageToMatch : addSMSToMatch
     );
-
   } catch (error) {
     console.error('ERROR in optStatus:', error.message);
     throw error;
@@ -404,7 +426,7 @@ router.post('/inbound', (req, res) => {
 
   console.log('Final sender phone:', finalSender);
   console.log('Received body:', body);
-  const trimmedBody = body ? body.trimEnd() : '';
+  const trimmedBody = body.trimEnd();
   console.log('Trimmed body:', trimmedBody);
 
   // Step 1: Check for "START" or "STOP"
@@ -413,7 +435,7 @@ router.post('/inbound', (req, res) => {
     optInFunc(finalSender).catch(console.error);
   } else if (trimmedBody.toUpperCase() === optOut) {
     console.log('🔴 Opt-out message detected');
-    // optOutFunc(finalSender).catch(console.error);
+    optOutFunc(finalSender).catch(console.error);
   } else {
     console.log('💬 Normal message detected, processing...');
     optStatus(trimmedBody, finalSender).catch(console.error);
@@ -465,7 +487,8 @@ router.post('/admin-msg', async (req, res) => {
 
     const messageContent = `Dear ${recipientName}, ${message}`;
 
-    await adminSMS(
+    await sendAdminMessage(
+      recipientName,
       recipientPhone,
       messageContent,
       recipientType,
