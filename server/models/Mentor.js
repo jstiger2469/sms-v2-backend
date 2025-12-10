@@ -7,6 +7,8 @@ const mentorSchema = new Schema({
   lastName: { type: String, required: true },
   email: { type: String },
   phone: { type: String, required: true, unique: true },
+  specialties: [{ type: String }], // Array of tags for routing (e.g. 'financial', 'career')
+  isAvailable: { type: Boolean, default: true }, // For routing availability
 });
 
 // Create and export the Mentor model
