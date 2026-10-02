@@ -468,4 +468,51 @@ router.get('/messages', async (req, res) => {
   }
 });
 
+/**
+ * Debug route: report opt-in status for a student by phone number.
+ * Helps diagnose whether opt-in flags are blocking outbound SMS.
+ */
+router.get('/debug/optin-status/:phone', async (req, res) => {
+  try {
+    const rawPhone = req.params.phone;
+    const phone = normalizePhone(rawPhone) || String(rawPhone).replace(/\D/g, '');
+
+    const student = await Student.findOne({ phone }).exec();
+    if (!student) {
+      return res
+        .status(404)
+        .json({ success: false, error: `Student not found for phone ${phone}` });
+    }
+
+    const studentInfo = {
+      firstName: student.firstName,
+      lastName: student.lastName,
+      phone: student.phone,
+    };
+
+    const match = await Match.findOne({ student: student._id }).exec();
+    if (!match) {
+      return res.status(200).json({
+        success: true,
+        student: studentInfo,
+        match: null,
+        error: 'Match not found for student',
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      student: studentInfo,
+      match: {
+        studentOptIn: match.studentOptIn,
+        mentorOptIn: match.mentorOptIn,
+        status: match.status,
+      },
+    });
+  } catch (error) {
+    console.error('Error in debug optin-status route:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 module.exports = router;
