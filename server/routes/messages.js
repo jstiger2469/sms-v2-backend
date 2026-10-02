@@ -6,7 +6,8 @@ const Student = require('../models/Student');
 const Notification = require('../models/Notifications'); // Assuming Notification model is in models/Notification
 const adminSMS = require('../utils/adminSMS');
 const inboundSMS = require('../utils/inboundSMS');
-const { optInFunc } = require('../utils/helpers');
+const { optInFunc, optOutFunc } = require('../utils/helpers');
+const { normalizePhone, toE164, parseOptKeyword } = require('../utils/phone');
 const pulseService = require('../services/pulse.service');
 require('dotenv').config();
 const accountSid = process.env.TWILIO_ACCOUNT_SID;
@@ -236,14 +237,13 @@ function sendSMS(from, to, messageBody, callback, obj) {
   console.log('Twilio client created, sending SMS...');
 
   // Normalize destination to E.164
-  const digits = String(to || '').replace(/\D/g, '');
-  const toE164 = digits.length === 10 ? `+1${digits}` : `+${digits}`;
+  const toNumber = toE164(to);
 
   client.messages
     .create({
       body: messageBody,
       from: process.env.TWILIO_PHONE,
-      to: toE164,
+      to: toNumber,
     })
     .then((message) => {
       console.log('✅ SMS sent successfully via Twilio!');
@@ -415,25 +415,19 @@ router.post('/inbound', (req, res) => {
   
   // Normalize sender to 10-digit for DB lookup
   const rawSender = req.body.msisdn || req.body.From || '';
-  const digits = String(rawSender).replace(/\D/g, '');
-  const finalSender = digits.length === 11 && digits.startsWith('1')
-    ? digits.slice(1)
-    : digits;
+  const finalSender = normalizePhone(rawSender) || String(rawSender).replace(/\D/g, '');
 
-  const body = req.body.text || req.body.Body;
-  const optIn = 'START';
-  const optOut = 'STOP';
-
+  const body = String(req.body.text || req.body.Body || '');
   console.log('Final sender phone:', finalSender);
   console.log('Received body:', body);
-  const trimmedBody = body.trimEnd();
-  console.log('Trimmed body:', trimmedBody);
+  const trimmedBody = body.trim();
 
-  // Step 1: Check for "START" or "STOP"
-  if (trimmedBody.toUpperCase() === optIn) {
+  // Step 1: Check for opt-in/opt-out keywords (START, Start., YES, STOP, ...)
+  const keyword = parseOptKeyword(trimmedBody);
+  if (keyword === 'in') {
     console.log('🟢 Opt-in message detected:', trimmedBody);
     optInFunc(finalSender).catch(console.error);
-  } else if (trimmedBody.toUpperCase() === optOut) {
+  } else if (keyword === 'out') {
     console.log('🔴 Opt-out message detected');
     optOutFunc(finalSender).catch(console.error);
   } else {

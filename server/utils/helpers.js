@@ -1,3 +1,4 @@
+const { normalizePhone, toE164 } = require('./phone');
 function matchPush(match, obj) {
   console.log(match);
   console.log(obj);
@@ -71,50 +72,55 @@ function StudentSmsOptIn(x, y, z) {
     });
 }
 
-async function optInFunc(sender) {
+const UNKNOWN_NUMBER_MSG =
+  "We couldn't find your number in Seedling SMS. Please contact your program coordinator so they can update your phone number.";
+
+async function findParticipant(sender) {
   const Mentor = require('../models/Mentor');
   const Student = require('../models/Student');
+  const digits = normalizePhone(sender);
+  if (!digits) return { digits: null };
+  const mentor = await Mentor.findOne({ phone: digits });
+  if (mentor) return { digits, mentor };
+  const student = await Student.findOne({ phone: digits });
+  return { digits, student };
+}
+
+async function setOptIn(sender, value) {
   const Match = require('../models/Match');
   const twilio = require('twilio');
   const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
   const TWILIO_PHONE = process.env.TWILIO_PHONE;
 
-  // Normalize to digits for DB lookup (we store digits only)
-  const digits = String(sender || '').replace(/\D/g, '');
+  const { digits, mentor, student } = await findParticipant(sender);
+  const to = toE164(sender);
 
-  // Try to find mentor by phone
-  const mentor = await Mentor.findOne({ phone: digits });
-  if (mentor) {
-    await Match.updateMany(
-      { mentor: mentor._id },
-      { $set: { mentorOptIn: true } }
-    );
-    // Send confirmation SMS
+  if (!mentor && !student) {
+    console.error(`[opt-${value ? 'in' : 'out'}] No mentor or student found for phone:`, sender, '-> normalized:', digits);
+    // Let the sender know instead of silently ignoring them (not on STOP: carriers already confirm that)
+    if (value && to) {
+      await client.messages.create({ body: UNKNOWN_NUMBER_MSG, from: TWILIO_PHONE, to });
+    }
+    return { found: false };
+  }
+
+  const field = mentor ? 'mentorOptIn' : 'studentOptIn';
+  const filter = mentor ? { mentor: mentor._id } : { student: student._id };
+  await Match.updateMany(filter, { $set: { [field]: value } });
+
+  // Twilio auto-replies to STOP itself; only confirm opt-ins
+  if (value) {
     await client.messages.create({
       body: 'You have successfully opted in to SMS notifications.',
       from: TWILIO_PHONE,
-      to: digits.length === 10 ? `+1${digits}` : `+${digits}`
+      to,
     });
-    return;
   }
-  // Try to find student by phone
-  const student = await Student.findOne({ phone: digits });
-  if (student) {
-    await Match.updateMany(
-      { student: student._id },
-      { $set: { studentOptIn: true } }
-    );
-    // Send confirmation SMS
-    await client.messages.create({
-      body: 'You have successfully opted in to SMS notifications.',
-      from: TWILIO_PHONE,
-      to: digits.length === 10 ? `+1${digits}` : `+${digits}`
-    });
-    return;
-  }
-  // If neither found, log error
-  console.error('No mentor or student found for phone:', digits);
+  return { found: true, role: mentor ? 'mentor' : 'student' };
 }
+
+const optInFunc = (sender) => setOptIn(sender, true);
+const optOutFunc = (sender) => setOptIn(sender, false);
 
 async function optStatus(body, sender) {
   console.log(body, sender);
@@ -152,5 +158,6 @@ function processResult(result, body, sender, receiver, func) {
 
 module.exports = {
   optInFunc,
+  optOutFunc,
   // add other exports as needed
 };

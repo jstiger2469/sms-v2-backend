@@ -1,4 +1,5 @@
 const express = require('express');
+const { normalizePhone, toE164 } = require('../utils/phone');
 const mongoose = require('mongoose');
 const Mentor = require('../models/Mentor');
 
@@ -20,9 +21,9 @@ router.put('/:id', async (req, res) => {
       if (typeof phone !== 'string') {
         return res.status(400).json({ error: 'Phone must be a string' });
       }
-      const numericDigits = phone.replace(/\D/g, '');
-      if (numericDigits.length < 10) {
-        return res.status(400).json({ error: 'Phone number must have at least 10 digits' });
+      const numericDigits = normalizePhone(phone);
+      if (!numericDigits) {
+        return res.status(400).json({ error: 'Phone must be a valid 10-digit US number' });
       }
       updateData.phone = numericDigits;
     }

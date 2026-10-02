@@ -1,4 +1,5 @@
 const express = require('express');
+const { normalizePhone, toE164 } = require('../utils/phone');
 const mongoose = require('mongoose');
 const Match = require('../models/Match');
 const Student = require('../models/Student');
@@ -64,10 +65,14 @@ router.get('/:id', async (req, res) => {
 router.post('/create-match', async (req, res) => {
   const { studentData, mentorData } = req.body;
   // Validate phone numbers (at least 10 digits)
-  const isValidPhone = (phone) => typeof phone === 'string' && phone.replace(/\D/g, '').length >= 10;
-  if (!isValidPhone(studentData.phone) || !isValidPhone(mentorData.phone)) {
-    return res.status(400).json({ message: 'Both student and mentor must have valid phone numbers with at least 10 digits.' });
+  const studentPhone = normalizePhone(studentData && studentData.phone);
+  const mentorPhone = normalizePhone(mentorData && mentorData.phone);
+  if (!studentPhone || !mentorPhone) {
+    return res.status(400).json({ message: 'Both student and mentor must have valid 10-digit US phone numbers.' });
   }
+  // Always store the canonical 10-digit form so inbound replies (START) match
+  studentData.phone = studentPhone;
+  mentorData.phone = mentorPhone;
   try {
     console.log('Creating match with:', { studentData, mentorData });
     // Create student
@@ -87,16 +92,12 @@ router.post('/create-match', async (req, res) => {
 
     // Send Welcome Message with Opt-In Request to both mentor and student
     const welcomeMsg = (user) => `Hello ${user.firstName} ${user.lastName} welcome to Seedling SMS please respond with START to begin using the service.\n\nHola ${user.firstName} ${user.lastName} ¡Bienvenidos a Seedling SMS! Responda con START para comenzar a usar el servicio.`;
-    const normalize = (p) => {
-      const d = String(p || '').replace(/\D/g, '');
-      return d.length === 10 ? `+1${d}` : `+${d}`;
-    };
     try {
       console.log('Sending welcome SMS to student:', student.phone, welcomeMsg(student));
       console.log('Sending welcome SMS to mentor:', mentor.phone, welcomeMsg(mentor));
       const results = await Promise.all([
-        adminSMS(normalize(student.phone), welcomeMsg(student), 'Student', student._id),
-        adminSMS(normalize(mentor.phone), welcomeMsg(mentor), 'Mentor', mentor._id)
+        adminSMS(toE164(student.phone), welcomeMsg(student), 'Student', student._id),
+        adminSMS(toE164(mentor.phone), welcomeMsg(mentor), 'Mentor', mentor._id)
       ]);
       console.log('Welcome SMS results:', results);
     } catch (smsErr) {
@@ -163,14 +164,10 @@ router.post('/resend-opt-in/:id', async (req, res) => {
 
     const welcomeMsg = (user) => `Hello ${user.firstName} ${user.lastName} welcome to Seedling SMS please respond with START to begin using the service.\n\nHola ${user.firstName} ${user.lastName} ¡Bienvenidos a Seedling SMS! Responda con START para comenzar a usar el servicio.`;
 
-    const norm = (p) => {
-      const d = String(p || '').replace(/\D/g, '');
-      return d.length === 10 ? `+1${d}` : `+${d}`;
-    };
 
     const results = await Promise.allSettled([
-      adminSMS(norm(match.student.phone), welcomeMsg(match.student), 'Student', match.student._id),
-      adminSMS(norm(match.mentor.phone), welcomeMsg(match.mentor), 'Mentor', match.mentor._id),
+      adminSMS(toE164(match.student.phone), welcomeMsg(match.student), 'Student', match.student._id),
+      adminSMS(toE164(match.mentor.phone), welcomeMsg(match.mentor), 'Mentor', match.mentor._id),
     ]);
 
     const failed = results.filter(r => r.status === 'rejected');
@@ -202,8 +199,7 @@ router.post('/resend-opt-in/:id/:role', async (req, res) => {
     }
 
     const user = role === 'mentor' ? match.mentor : match.student;
-    const digits = String(user.phone || '').replace(/\D/g, '');
-    if (digits.length < 10) {
+    if (!toE164(user.phone)) {
       return res.status(400).json({ message: 'Invalid phone number for user' });
     }
     const welcomeMsg = (u) => `Hello ${u.firstName} ${u.lastName} welcome to Seedling SMS please respond with START to begin using the service.\n\nHola ${u.firstName} ${u.lastName} ¡Bienvenidos a Seedling SMS! Responda con START para comenzar a usar el servicio.`;
