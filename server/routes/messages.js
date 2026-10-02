@@ -8,6 +8,9 @@ const adminSMS = require('../utils/adminSMS');
 const inboundSMS = require('../utils/inboundSMS');
 const { optInFunc, optOutFunc } = require('../utils/helpers');
 const { normalizePhone, toE164, parseOptKeyword } = require('../utils/phone');
+
+const OPT_IN_REMINDER_MSG =
+  'To start using Seedling SMS, please reply START.\n\nPara comenzar a usar Seedling SMS, responda START.';
 require('dotenv').config();
 const accountSid = process.env.TWILIO_ACCOUNT_SID;
 const authToken = process.env.TWILIO_AUTH_TOKEN;
@@ -296,6 +299,19 @@ async function optStatus(body, sender) {
 
     console.log('Recipient phone:', recipientPhone);
     console.log('Opt-in status - Mentor:', match.mentorOptIn, 'Student:', match.studentOptIn);
+
+    // Sender hasn't opted in and didn't send a recognized keyword (e.g. typed "Strat"):
+    // remind them how to opt in instead of silently dropping the message
+    const senderOptedIn = mentor ? match.mentorOptIn : match.studentOptIn;
+    if (!senderOptedIn) {
+      console.log('Sender not opted in - sending START reminder');
+      await client.messages.create({
+        body: OPT_IN_REMINDER_MSG,
+        from: process.env.TWILIO_PHONE,
+        to: toE164(sender),
+      });
+      return;
+    }
 
     // Step 3: Process the result
     console.log('Step 3: Processing message result...');
