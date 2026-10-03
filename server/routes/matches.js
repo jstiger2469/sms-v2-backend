@@ -73,7 +73,22 @@ router.post('/create-match', async (req, res) => {
   // Always store the canonical 10-digit form so inbound replies (START) match
   studentData.phone = studentPhone;
   mentorData.phone = mentorPhone;
+  if (studentPhone === mentorPhone) {
+    return res.status(400).json({ message: 'The mentor and student cannot have the same phone number.' });
+  }
   try {
+    // Check both numbers before saving anything, so a conflict never leaves a half-created
+    // student/mentor behind. Inbound SMS is routed by phone, so each number must be unique.
+    const fmt = (d) => `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}`;
+    for (const phone of [mentorPhone, studentPhone]) {
+      const [m, s] = await Promise.all([Mentor.findOne({ phone }), Student.findOne({ phone })]);
+      const owner = m ? ['mentor', m] : s ? ['student', s] : null;
+      if (owner) {
+        return res.status(409).json({
+          message: `${fmt(phone)} already belongs to ${owner[0]} ${owner[1].firstName} ${owner[1].lastName}. Use a different number or remove the existing match first.`,
+        });
+      }
+    }
     console.log('Creating match with:', { studentData, mentorData });
     // Create student
     const student = new Student(studentData);
